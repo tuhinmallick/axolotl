@@ -307,28 +307,22 @@ def load_prepare_datasets(
     max_packed_sequence_len = (
         cfg.max_packed_sequence_len if cfg.max_packed_sequence_len else cfg.sequence_len
     )
-    max_packed_sequence_len = min(
-        max_packed_sequence_len, cfg.sequence_len
-    )  # make sure we don't accidentally set it larger than sequence_len
-
     tokenizer_name = tokenizer.__class__.__name__
     prompters: List[Prompter] = []
+    max_packed_sequence_len = min(max_packed_sequence_len, cfg.sequence_len)
     if cfg.max_packed_sequence_len is not None:
         # see if we can go ahead and load the stacked dataset
         seed = f"@{str(cfg.seed)}" if cfg.seed else ""
         ds_hash = str(
             md5(
-                (
-                    str(cfg.sequence_len)
-                    + "@"
-                    + str(max_packed_sequence_len)
-                    + seed
-                    + "|".join(
-                        sorted([f"{d.path}:{d.type}:{d.shards}" for d in cfg.datasets])
+                f"{str(cfg.sequence_len)}@{str(max_packed_sequence_len)}{seed}"
+                + "|".join(
+                    sorted(
+                        [f"{d.path}:{d.type}:{d.shards}" for d in cfg.datasets]
                     )
-                    + "|"
-                    + tokenizer_name
                 )
+                + "|"
+                + tokenizer_name
             )
         )
         prepared_ds_path = (
@@ -425,24 +419,8 @@ def load_prepare_datasets(
 
     if cfg.val_set_size:
         # ensure we end up with the same fingerprint by doing rank0 first and being able to cache
-        to_hash_train = (
-            dataset._fingerprint  # pylint: disable=protected-access
-            + "|"
-            + str(cfg.val_set_size)
-            + "|"
-            + "train"
-            + "|"
-            + str(cfg.seed or 42)
-        )
-        to_hash_test = (
-            dataset._fingerprint  # pylint: disable=protected-access
-            + "|"
-            + str(cfg.val_set_size)
-            + "|"
-            + "test"
-            + "|"
-            + str(cfg.seed or 42)
-        )
+        to_hash_train = f"{dataset._fingerprint}|{str(cfg.val_set_size)}|train|{str(cfg.seed or 42)}"
+        to_hash_test = f"{dataset._fingerprint}|{str(cfg.val_set_size)}|test|{str(cfg.seed or 42)}"
         train_fingerprint = md5(to_hash_train)
         test_fingerprint = md5(to_hash_test)
 
@@ -635,12 +613,7 @@ def encode_pretraining(
             new_attention_mask.append(buffer_attention_mask)
             buffer_input_ids = torch.tensor([], dtype=torch.long)
             buffer_attention_mask = torch.tensor([], dtype=torch.long)
-            buffer_input_ids = torch.cat((buffer_input_ids, ids), dim=0)
-            buffer_attention_mask = torch.cat((buffer_attention_mask, mask), dim=0)
-        elif buffer_input_ids.numel() + ids.numel() <= max_tokens:
-            buffer_input_ids = torch.cat((buffer_input_ids, ids), dim=0)
-            buffer_attention_mask = torch.cat((buffer_attention_mask, mask), dim=0)
-        else:
+        elif buffer_input_ids.numel() + ids.numel() > max_tokens:
             buffer_input_ids = torch.cat(
                 (
                     buffer_input_ids,
@@ -668,9 +641,8 @@ def encode_pretraining(
             buffer_input_ids = torch.tensor([], dtype=torch.long)
             buffer_attention_mask = torch.tensor([], dtype=torch.long)
 
-            buffer_input_ids = torch.cat((buffer_input_ids, ids), dim=0)
-            buffer_attention_mask = torch.cat((buffer_attention_mask, mask), dim=0)
-
+        buffer_input_ids = torch.cat((buffer_input_ids, ids), dim=0)
+        buffer_attention_mask = torch.cat((buffer_attention_mask, mask), dim=0)
     if buffer_input_ids.numel() > 0:  # for any leftover tokens
         while buffer_input_ids.numel() < max_tokens:  # make all sequences equal in size
             buffer_input_ids = torch.cat(

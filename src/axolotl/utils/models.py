@@ -39,10 +39,7 @@ def load_model_config(cfg):
 
 def load_tokenizer(cfg):
     tokenizer_kwargs = {}
-    use_fast = True  # this is the default
-
-    if cfg.tokenizer_use_fast is not None:
-        use_fast = cfg.tokenizer_use_fast
+    use_fast = True if cfg.tokenizer_use_fast is None else cfg.tokenizer_use_fast
     if cfg.tokenizer_legacy is not None:
         # True is the default w/ https://github.com/huggingface/transformers/pull/25224
         tokenizer_kwargs["legacy"] = cfg.tokenizer_legacy

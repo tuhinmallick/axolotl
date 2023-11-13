@@ -54,11 +54,7 @@ def print_axolotl_text_art(suffix=None):
 
 def get_multi_line_input() -> Optional[str]:
     print("Give me an instruction (Ctrl + D to submit): ")
-    instruction = ""
-    for line in sys.stdin:
-        instruction += line  # pylint: disable=consider-using-join
-    # instruction = pathlib.Path("/proc/self/fd/0").read_text()
-    return instruction
+    return "".join(sys.stdin)
 
 
 def do_merge_lora(
@@ -271,7 +267,7 @@ def choose_config(path: Path):
 
 
 def check_not_in(list1: List[str], list2: Union[Dict[str, Any], List[str]]) -> bool:
-    return not any(el in list2 for el in list1)
+    return all(el not in list2 for el in list1)
 
 
 def load_cfg(config: Path = Path("examples/"), **kwargs):
@@ -285,15 +281,11 @@ def load_cfg(config: Path = Path("examples/"), **kwargs):
     # if there are any options passed in the cli, if it is something that seems valid from the yaml,
     # then overwrite the value
     cfg_keys = cfg.keys()
-    for k, _ in kwargs.items():
+    for k in kwargs:
         # if not strict, allow writing to cfg even if it's not in the yml already
         if k in cfg_keys or not cfg.strict:
             # handle booleans
-            if isinstance(cfg[k], bool):
-                cfg[k] = bool(kwargs[k])
-            else:
-                cfg[k] = kwargs[k]
-
+            cfg[k] = bool(kwargs[k]) if isinstance(cfg[k], bool) else kwargs[k]
     validate_config(cfg)
 
     normalize_config(cfg)

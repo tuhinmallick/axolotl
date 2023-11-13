@@ -41,9 +41,7 @@ def is_main_process():
     Check if the current process is the main process.
     If not in distributed mode, always return True.
     """
-    if not is_distributed():
-        return True
-    return dist.get_rank() == 0
+    return True if not is_distributed() else dist.get_rank() == 0
 
 
 def get_world_size():

@@ -67,7 +67,7 @@ def train(
         possible_checkpoints = [
             str(cp) for cp in Path(cfg.output_dir).glob("checkpoint-*")
         ]
-        if len(possible_checkpoints) > 0:
+        if possible_checkpoints:
             sorted_paths = sorted(
                 possible_checkpoints,
                 key=lambda path: int(path.split("-")[-1]),
@@ -136,7 +136,11 @@ def train(
         LOG.info("Set FSDP state dict type to FULL_STATE_DICT for saving.")
 
     if cfg.relora_steps:
-        if cfg.adapter == "lora" and not (cfg.load_in_4bit or cfg.load_in_8bit):
+        if (
+            cfg.adapter == "lora"
+            and not cfg.load_in_4bit
+            and not cfg.load_in_8bit
+        ):
             model = model.merge_and_unload()
         else:
             # final model weights have already been saved by `ReLoRACallback.on_train_end`

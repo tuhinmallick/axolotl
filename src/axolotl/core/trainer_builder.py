@@ -184,75 +184,73 @@ class AxolotlTrainer(Trainer):
         return super()._get_eval_sampler(eval_dataset)
 
     def get_train_dataloader(self) -> DataLoader:
-        if self.args.sample_packing:
-            train_dataset = self.train_dataset
-            train_dataset = train_dataset.remove_columns(["length"])
-            data_collator = self.data_collator
-            dataloader_params = {
-                "batch_size": self._train_batch_size,
-                "collate_fn": data_collator,
-                "num_workers": self.args.dataloader_num_workers,
-                "pin_memory": self.args.dataloader_pin_memory,
-            }
-            if self.args.dataloader_prefetch_factor:
-                dataloader_params[
-                    "prefetch_factor"
-                ] = self.args.dataloader_prefetch_factor
+        if not self.args.sample_packing:
+            return super().get_train_dataloader()
+        train_dataset = self.train_dataset
+        train_dataset = train_dataset.remove_columns(["length"])
+        data_collator = self.data_collator
+        dataloader_params = {
+            "batch_size": self._train_batch_size,
+            "collate_fn": data_collator,
+            "num_workers": self.args.dataloader_num_workers,
+            "pin_memory": self.args.dataloader_pin_memory,
+        }
+        if self.args.dataloader_prefetch_factor:
+            dataloader_params[
+                "prefetch_factor"
+            ] = self.args.dataloader_prefetch_factor
 
-            sampler = self._get_train_sampler()
-            if isinstance(sampler, BatchSampler):
-                dataloader_params["batch_sampler"] = sampler
-                del dataloader_params["batch_size"]
-            else:
-                dataloader_params["sampler"] = sampler
-                dataloader_params["drop_last"] = self.args.dataloader_drop_last
-            dataloader_params["worker_init_fn"] = seed_worker
+        sampler = self._get_train_sampler()
+        if isinstance(sampler, BatchSampler):
+            dataloader_params["batch_sampler"] = sampler
+            del dataloader_params["batch_size"]
+        else:
+            dataloader_params["sampler"] = sampler
+            dataloader_params["drop_last"] = self.args.dataloader_drop_last
+        dataloader_params["worker_init_fn"] = seed_worker
 
-            self.accelerator.even_batches = False
-            return self.accelerator.prepare_data_loader(
-                DataLoader(train_dataset, **dataloader_params)
-            )
-        return super().get_train_dataloader()
+        self.accelerator.even_batches = False
+        return self.accelerator.prepare_data_loader(
+            DataLoader(train_dataset, **dataloader_params)
+        )
 
     def get_eval_dataloader(self, eval_dataset: Optional[Dataset] = None) -> DataLoader:
-        if self.args.sample_packing and self.args.eval_sample_packing is not False:
-            eval_dataset = (
-                eval_dataset if eval_dataset is not None else self.eval_dataset
-            )
+        if not self.args.sample_packing or self.args.eval_sample_packing is False:
+            return super().get_eval_dataloader(eval_dataset)
+        eval_dataset = (
+            eval_dataset if eval_dataset is not None else self.eval_dataset
+        )
 
-            eval_sampler = self._get_eval_sampler(eval_dataset)
-            eval_dataset = eval_dataset.remove_columns(["length"])
-            data_collator = self.data_collator
-            dataloader_params = {
-                "batch_size": self.args.eval_batch_size,
-                "collate_fn": data_collator,
-                "num_workers": self.args.dataloader_num_workers,
-                "pin_memory": self.args.dataloader_pin_memory,
-            }
-            if self.args.dataloader_prefetch_factor:
-                dataloader_params[
-                    "prefetch_factor"
-                ] = self.args.dataloader_prefetch_factor
+        eval_sampler = self._get_eval_sampler(eval_dataset)
+        eval_dataset = eval_dataset.remove_columns(["length"])
+        data_collator = self.data_collator
+        dataloader_params = {
+            "batch_size": self.args.eval_batch_size,
+            "collate_fn": data_collator,
+            "num_workers": self.args.dataloader_num_workers,
+            "pin_memory": self.args.dataloader_pin_memory,
+        }
+        if self.args.dataloader_prefetch_factor:
+            dataloader_params[
+                "prefetch_factor"
+            ] = self.args.dataloader_prefetch_factor
 
-            if isinstance(eval_sampler, BatchSampler):
-                dataloader_params["batch_sampler"] = eval_sampler
-                del dataloader_params["batch_size"]
-            else:
-                dataloader_params["sampler"] = eval_sampler
-                dataloader_params["drop_last"] = self.args.dataloader_drop_last
+        if isinstance(eval_sampler, BatchSampler):
+            dataloader_params["batch_sampler"] = eval_sampler
+            del dataloader_params["batch_size"]
+        else:
+            dataloader_params["sampler"] = eval_sampler
+            dataloader_params["drop_last"] = self.args.dataloader_drop_last
 
-            self.accelerator.even_batches = False
-            return self.accelerator.prepare_data_loader(
-                DataLoader(eval_dataset, **dataloader_params)
-            )
-        return super().get_eval_dataloader(eval_dataset)
+        self.accelerator.even_batches = False
+        return self.accelerator.prepare_data_loader(
+            DataLoader(eval_dataset, **dataloader_params)
+        )
 
     def _get_bench_sampler(
         self, bench_dataset: Dataset
     ) -> Optional[torch.utils.data.Sampler]:
-        if self.args.world_size <= 1:
-            return SequentialSampler(bench_dataset)
-        return None
+        return SequentialSampler(bench_dataset) if self.args.world_size <= 1 else None
 
     def get_bench_dataloader(
         self,
@@ -412,10 +410,7 @@ class HFCausalTrainerBuilder(TrainerBuilderBase):
         return trainer
 
     def get_callbacks(self):
-        callbacks = []
-        callbacks.append(GPUStatsCallback(self.cfg))
-        callbacks.append(EvalFirstStepCallback)
-
+        callbacks = [GPUStatsCallback(self.cfg), EvalFirstStepCallback]
         if self.cfg.relora_steps:
             callbacks.append(ReLoRACallback(self.cfg))
 
@@ -456,9 +451,7 @@ class HFCausalTrainerBuilder(TrainerBuilderBase):
             self.cfg.fsdp or self.cfg.adapter == "qlora"
         ):
             return OneCycleLRSchedulerTrainer
-        if self.cfg.relora_steps:
-            return ReLoRATrainer
-        return AxolotlTrainer
+        return ReLoRATrainer if self.cfg.relora_steps else AxolotlTrainer
 
     def build(self, total_num_steps):
         warmup_steps = (
@@ -682,17 +675,11 @@ class HFCausalTrainerBuilder(TrainerBuilderBase):
                 importlib.import_module("torchdistx")
 
         data_collator_kwargs = {
-            "padding": True,  # True/"longest" is the default
+            "padding": True,
+            "pad_to_multiple_of": 64 * math.ceil(self.cfg.sequence_len / 64)
+            if self.cfg.pad_to_sequence_len
+            else 64,
         }
-        if self.cfg.pad_to_sequence_len:
-            data_collator_kwargs["pad_to_multiple_of"] = 64 * math.ceil(
-                self.cfg.sequence_len / 64
-            )
-        else:
-            # A100 is best at 64, while others at 8. Let's use the larger so we don't have to check
-            # https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html
-            data_collator_kwargs["pad_to_multiple_of"] = 64
-
         if self.cfg.is_llama_derived_model and self.cfg.landmark_attention:
             from axolotl.monkeypatch.llama_landmark_attn import (
                 add_mem_tokens,
