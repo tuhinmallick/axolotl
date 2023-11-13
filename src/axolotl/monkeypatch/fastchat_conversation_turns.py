@@ -11,10 +11,7 @@ LOG = logging.getLogger("axolotl.monkeypatch.fastchat_conversation_turns")
 
 
 def get_prompt(self) -> str:
-    ret = ""
-    for role, msg in self.get_turns():
-        ret += role + msg
-    return ret
+    return "".join(role + msg for role, msg in self.get_turns())
 
 
 def get_turns(  # pylint: disable=too-many-return-statements
@@ -26,26 +23,26 @@ def get_turns(  # pylint: disable=too-many-return-statements
         yield "", system_prompt + self.sep
         for role, message in self.messages:
             if message:
-                yield role + ": ", message + self.sep
+                yield (f"{role}: ", message + self.sep)
             else:
-                yield role + ":", ""
+                yield (f"{role}:", "")
         return
     if self.sep_style == SeparatorStyle.ADD_COLON_TWO:
         seps = [self.sep, self.sep2]
         yield "", system_prompt + seps[0]
         for i, (role, message) in enumerate(self.messages):
             if message:
-                yield role + ": ", message + seps[i % 2]
+                yield (f"{role}: ", message + seps[i % 2])
             else:
-                yield role + ":", ""
+                yield (f"{role}:", "")
         return
     if self.sep_style == SeparatorStyle.ADD_COLON_SPACE_SINGLE:
         yield "", system_prompt + self.sep
         for role, message in self.messages:
             if message:
-                yield role + ": ", message + self.sep
+                yield (f"{role}: ", message + self.sep)
             else:
-                yield role + ": ", ""  # must be end with a space
+                yield (f"{role}: ", "")
         return
     if self.sep_style == SeparatorStyle.ADD_NEW_LINE_SINGLE:
         yield "", "" if system_prompt == "" else system_prompt + self.sep
@@ -74,13 +71,15 @@ def get_turns(  # pylint: disable=too-many-return-statements
         return
     if self.sep_style == SeparatorStyle.RWKV:
         yield "", system_prompt
-        for i, (role, message) in enumerate(self.messages):
+        for role, message in self.messages:
             if message:
-                yield role + ": ", message.replace("\r\n", "\n").replace(
-                    "\n\n", "\n"
-                ) + "\n\n"
+                yield (
+                    f"{role}: ",
+                    message.replace("\r\n", "\n").replace("\n\n", "\n")
+                    + "\n\n",
+                )
             else:
-                yield role + ":", ""
+                yield (f"{role}:", "")
         return
     if self.sep_style == SeparatorStyle.LLAMA2:
         seps = [self.sep, self.sep2]
@@ -90,7 +89,7 @@ def get_turns(  # pylint: disable=too-many-return-statements
             yield "", "[INST] "
         for i, (role, message) in enumerate(self.messages[1:]):
             if message:
-                yield role + " ", message + seps[i % 2]
+                yield (f"{role} ", message + seps[i % 2])
             else:
                 yield role, ""
         return
@@ -123,11 +122,11 @@ def get_turns(  # pylint: disable=too-many-return-statements
         seps = [self.sep, self.sep2]
         yield "", system_prompt
         for i, (role, message) in enumerate(self.messages):
-            prefix = "<s>" if i % 2 == 0 else ""
             if message:
+                prefix = "<s>" if i % 2 == 0 else ""
                 yield prefix + role + ":", message + seps[i % 2] + "\n"
             else:
-                yield role + ":", ""
+                yield (f"{role}:", "")
         return
     if self.sep_style == SeparatorStyle.DOLLY:
         seps = [self.sep, self.sep2]
@@ -143,9 +142,9 @@ def get_turns(  # pylint: disable=too-many-return-statements
         yield "", system_prompt
         for role, message in self.messages:
             if message:
-                yield role + ": ", "<s>" + message + "</s>"
+                yield (f"{role}: ", f"<s>{message}</s>")
             else:
-                yield role + ": " + "<s>", ""
+                yield (f"{role}: <s>", "")
         return
     if self.sep_style == SeparatorStyle.ROBIN:
         yield "", system_prompt + self.sep
@@ -155,16 +154,15 @@ def get_turns(  # pylint: disable=too-many-return-statements
             else:
                 yield role + ":\n", ""
         return
-    if self.sep_style == SeparatorStyle.FALCON_CHAT:
-        if self.system_message:
-            yield "", system_prompt + self.sep
-        for role, message in self.messages:
-            if message:
-                yield role + ": ", message + self.sep
-            else:
-                yield role + ":", ""
-    else:
+    if self.sep_style != SeparatorStyle.FALCON_CHAT:
         raise ValueError(f"Invalid style: {self.sep_style}")
+    if self.system_message:
+        yield "", system_prompt + self.sep
+    for role, message in self.messages:
+        if message:
+            yield (f"{role}: ", message + self.sep)
+        else:
+            yield (f"{role}:", "")
 
 
 def add_get_turns_to_conversation():

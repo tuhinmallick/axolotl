@@ -35,16 +35,11 @@ class InterpolatingLogScheduler(LRScheduler):
 
     def get_lr(self):
         if self.last_epoch <= 0:
-            lrs = [self.min_lr for base_lr in self.base_lrs]
+            return [self.min_lr for _ in self.base_lrs]
         elif self.last_epoch < self.num_steps:
-            lrs = [
-                self.min_lr * (self.q ** (self.last_epoch - 1))
-                for base_lr in self.base_lrs
-            ]
+            return [self.min_lr * (self.q ** (self.last_epoch - 1)) for _ in self.base_lrs]
         else:
-            lrs = [self.max_lr for base_lr in self.base_lrs]
-
-        return lrs
+            return [self.max_lr for _ in self.base_lrs]
 
 
 def _get_cosine_schedule_with_quadratic_warmup_lr_lambda(
@@ -59,9 +54,7 @@ def _get_cosine_schedule_with_quadratic_warmup_lr_lambda(
     progress = float(current_step - num_warmup_steps) / float(
         max(1, num_training_steps - num_warmup_steps)
     )
-    return max(
-        0.0, 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress))
-    )
+    return max(0.0, 0.5 * (1.0 + math.cos(math.pi * num_cycles * 2.0 * progress)))
 
 
 def get_cosine_schedule_with_quadratic_warmup(

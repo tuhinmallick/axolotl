@@ -138,11 +138,10 @@ class BatchSamplerDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
                     for item in features
                     if feature in item
                 ]
-                chunked_data[feature] = np.concatenate(arrays)
             else:
                 arrays = [
                     np.array(item[feature]) for item in features if feature in item
                 ]
-                chunked_data[feature] = np.concatenate(arrays)
+            chunked_data[feature] = np.concatenate(arrays)
         features = [chunked_data]
         return super().__call__(features, return_tensors=return_tensors)

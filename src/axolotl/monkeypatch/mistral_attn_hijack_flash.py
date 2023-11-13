@@ -182,9 +182,9 @@ def flashattn_forward(
 
             past_key_value = (past_key, past_value) if use_cache else None
 
-        if past_key_value is not None:
-            key_states = torch.cat([past_key_value[0], key_states], dim=2)
-            value_states = torch.cat([past_key_value[1], value_states], dim=2)
+    if past_key_value is not None:
+        key_states = torch.cat([past_key_value[0], key_states], dim=2)
+        value_states = torch.cat([past_key_value[1], value_states], dim=2)
 
     past_key_value = (key_states, value_states) if use_cache else None
 

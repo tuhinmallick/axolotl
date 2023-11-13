@@ -316,7 +316,7 @@ class ShareGPTPrompter(Prompter):  # pylint: disable=too-few-public-methods
         conv.messages = []
         for _, sentence in enumerate(source):
             role = roles[sentence["from"]]
-            if len(conv.messages) > 0 and (
+            if conv.messages and (
                 (role == conv.messages[-1][0]) or (role not in conv.roles)
             ):
                 LOG.warning(f"{SHAREGPT_ASSERTION_FAILED_ROLE}: {sentence}")

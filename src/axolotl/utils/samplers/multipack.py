@@ -134,7 +134,7 @@ class MultipackBatchSampler(BatchSampler):
         self.epoch = epoch
 
     def generate_batches(self, set_stats=False):
-        indices = [idx for idx in self.sampler]
+        indices = list(self.sampler)
 
         lengths = self.lengths[indices]
         lengths_cumsum = np.cumsum(lengths)

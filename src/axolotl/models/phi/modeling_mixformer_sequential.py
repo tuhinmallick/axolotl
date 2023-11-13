@@ -335,20 +335,20 @@ class MLP(nn.Module):
         error_msgs,
     ):
         old_keys = [
-            prefix + "fc_in.weight",
-            prefix + "fc_out.weight",
-            prefix + "fc_in.bias",
-            prefix + "fc_out.bias",
+            f"{prefix}fc_in.weight",
+            f"{prefix}fc_out.weight",
+            f"{prefix}fc_in.bias",
+            f"{prefix}fc_out.bias",
         ]
         new_keys = [
-            prefix + "fc1.weight",
-            prefix + "fc2.weight",
-            prefix + "fc1.bias",
-            prefix + "fc2.bias",
+            f"{prefix}fc1.weight",
+            f"{prefix}fc2.weight",
+            f"{prefix}fc1.bias",
+            f"{prefix}fc2.bias",
         ]
 
-        if all(k in state_dict for k in old_keys) and not all(
-            k in state_dict for k in new_keys
+        if all(k in state_dict for k in old_keys) and any(
+            k not in state_dict for k in new_keys
         ):
             # Older version of `MLP` saved with different key names.
             for old_key, new_key in zip(old_keys, new_keys):
@@ -579,9 +579,6 @@ class MHA(nn.Module):
                 rotary_kwargs["scale_base"] = rotary_emb_scale_base
 
             self.rotary_emb = RotaryEmbedding(self.rotary_emb_dim, **rotary_kwargs)
-        else:
-            pass
-
         self.Wqkv = nn.Linear(
             self.hidden_size, 3 * self.op_size, bias=bias, **factory_kwargs
         )
@@ -758,9 +755,7 @@ class CausalLMHead(nn.Module):
 
     def forward(self, hidden_states: torch.FloatTensor) -> torch.FloatTensor:
         hidden_states = self.ln(hidden_states)
-        logits = self.linear(hidden_states).to(torch.float32)
-
-        return logits
+        return self.linear(hidden_states).to(torch.float32)
 
 
 class CausalLMLoss(nn.Module):
@@ -785,9 +780,7 @@ class CausalLMLoss(nn.Module):
             logits = logits[..., :-1, :].contiguous()
             labels = labels[..., 1:].contiguous()
 
-        loss = self.loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
-
-        return loss
+        return self.loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
 
 
 class MixFormerSequentialPreTrainedModel(PreTrainedModel):
@@ -921,10 +914,7 @@ class MixFormerSequentialForCausalLM(MixFormerSequentialPreTrainedModel):
                 )
             lm_logits = self.layers[-1](hidden_layer)
 
-        loss = None
-        if labels is not None:
-            loss = self.loss(lm_logits, labels)
-
+        loss = self.loss(lm_logits, labels) if labels is not None else None
         return CausalLMOutputWithPast(
             loss=loss, logits=lm_logits, past_key_values=past_key_values
         )

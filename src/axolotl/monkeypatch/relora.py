@@ -233,7 +233,7 @@ def sharded_paths(path: str, module_names: List[str]) -> Dict[str, str]:
         with open(index_path, "r", encoding="utf-8") as file:
             data = json.load(file)
         return data["weight_map"]
-    return {(module_name + ".weight"): model_name for module_name in module_names}
+    return {f"{module_name}.weight": model_name for module_name in module_names}
 
 
 def lora_delta_weight(layer: peft.tuners.lora.LoraLayer, device) -> torch.Tensor:
@@ -329,7 +329,7 @@ def merge_and_save(
                 in_tensors = in_tensors["state_dict"]
 
         for module_name, target in modules.items():
-            key = module_name + ".weight"
+            key = f"{module_name}.weight"
             if key not in shard_paths or shard_paths[key] != shard_path:
                 continue
 
@@ -383,7 +383,7 @@ def load_weight_checkpoint(model: peft.LoraModel, checkpoint_path: str):
         tensors = st.load_file(os.path.join(checkpoint_path, shard_path))
 
         for module_name, target in modules.items():
-            key = module_name + ".weight"
+            key = f"{module_name}.weight"
             if key not in shard_paths or shard_paths[key] != shard_path:
                 continue
 

@@ -260,15 +260,14 @@ def flashattn_forward(
         ]
         value_states = torch.cat(value_states, dim=-1)
 
+    elif isinstance(self, FusedAttention):
+        query_states, key_states, value_states = self.qkv_proj(hidden_states).split(
+            self.out_features, dim=-1
+        )
     else:
-        if isinstance(self, FusedAttention):
-            query_states, key_states, value_states = self.qkv_proj(hidden_states).split(
-                self.out_features, dim=-1
-            )
-        else:
-            query_states = self.q_proj(hidden_states)
-            key_states = self.k_proj(hidden_states)
-            value_states = self.v_proj(hidden_states)
+        query_states = self.q_proj(hidden_states)
+        key_states = self.k_proj(hidden_states)
+        value_states = self.v_proj(hidden_states)
 
     query_states = query_states.view(
         bsz, q_len, self.num_heads, self.head_dim
@@ -606,11 +605,7 @@ def llama_model_forward(
         )
         padding_mask = None
     else:
-        if 0 in attention_mask:
-            padding_mask = attention_mask
-        else:
-            padding_mask = None
-
+        padding_mask = attention_mask if 0 in attention_mask else None
     attention_mask = (
         self._prepare_decoder_attention_mask(  # pylint: disable=protected-access
             attention_mask,

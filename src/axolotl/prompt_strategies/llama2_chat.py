@@ -65,7 +65,7 @@ class Llama2ChatConversation:
             if i == 0:
                 ret += self.system + message.strip()
             else:
-                ret += role + " " + message.strip() + seps[i % 2]
+                ret += f"{role} {message.strip()}{seps[i % 2]}"
         return ret
 
     def append_message(self, role: str, message: str):
